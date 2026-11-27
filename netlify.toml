@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/"
+  to = "/motobid_multiplayer_bike_upgrade_auction_game.html"
+  status = 200
