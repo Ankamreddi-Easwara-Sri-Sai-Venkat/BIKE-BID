@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MotoBid — Multiplayer Bike Upgrade Auction</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['"Chakra Petch"', 'sans-serif'],
+          },
+          colors: {
+            carbon: {
+              950: '#090b10',
+              900: '#0f131a',
+              800: '#171d27',
+              700: '#222b3a',
+            },
+            racing: {
+              orange: '#ff5500',
+              amber: '#ffb703',
+              cyan: '#00f5d4',
+              emerald: '#10b981',
+              crimson: '#ef4444'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090b10;
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(255, 85, 0, 0.08), transparent 35%),
+        radial-gradient(circle at 85% 85%, rgba(0, 245, 212, 0.07), transparent 35%),
+        linear-gradient(45deg, #0c0f15 25%, transparent 25%),
+        linear-gradient(-45deg, #0c0f15 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #0c0f15 75%),
+        linear-gradient(-45deg, transparent 75%, #0c0f15 75%);
+      background-size: 100% 100%, 100% 100%, 16px 16px, 16px 16px, 16px 16px, 16px 16px;
+      background-position: 0 0, 0 0, 0 0, 0 8px, 8px -8px, -8px 0px;
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+
+    .glass-panel {
+      background: rgba(15, 19, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.65);
+    }
+
+    .neon-border-orange {
+      border-color: rgba(255, 85, 0, 0.5);
+      box-shadow: 0 0 20px rgba(255, 85, 0, 0.15);
+    }
+
+    .neon-border-cyan {
+      border-color: rgba(0, 245, 212, 0.5);
+      box-shadow: 0 0 20px rgba(0, 245, 212, 0.15);
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.03); opacity: 0.9; }
+    }
+
+    .animate-pulse-glow {
+      animation: pulseGlow 1.6s infinite ease-in-out;
+    }
+
+    @keyframes floatBike {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-3px); }
+    }
+
+    .bike-float {
+      animation: floatBike 2.5s infinite ease-in-out;
+    }
+
+    @keyframes exhaustFlame {
+      0%, 100% { transform: scaleX(1); opacity: 0.95; }
+      50% { transform: scaleX(1.35); opacity: 0.7; }
+    }
+
+    .flame-anim {
+      transform-origin: right center;
+      animation: exhaustFlame 0.18s infinite alternate;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f131a; }
+    ::-webkit-scrollbar-thumb { background: #222b3a; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5500; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-racing-orange selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-racing-orange to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+          <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-display text-xl sm:text-2xl font-bold tracking-wider uppercase italic bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            MOTO<span class="text-racing-orange">BID</span>
+          </h1>
+          <p class="text-[11px] text-slate-400 tracking-widest uppercase">Live Performance Auction</p>
+        </div>
+      </div>
+
+      <!-- Room Badge (Hidden on Landing) -->
+      <div id="header-room-info" class="hidden items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-2 bg-carbon-800/90 border border-white/10 px-3 py-1.5 rounded-xl">
+          <span class="text-xs text-slate-400 uppercase font-semibold">Team Code:</span>
+          <span id="header-room-code" class="font-display font-bold text-racing-cyan tracking-widest text-base sm:text-lg">-----</span>
+          <button id="copy-code-btn" title="Copy Team Code" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
+        <button id="leave-room-btn" class="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold transition">
+          Leave
+        </button>
+      </div>
+
+      <!-- Sound & Status Controls -->
+      <div class="flex items-center gap-2">
+        <div id="connection-pill" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>Live Sync</span>
+        </div>
+        <button id="sound-toggle-btn" class="p-2.5 rounded-xl bg-carbon-800 hover:bg-carbon-700 border border-white/10 text-slate-200 transition" title="Toggle Sound Effects">
+          <svg id="sound-on-icon" class="w-5 h-5 text-racing-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <svg id="sound-off-icon" class="w-5 h-5 text-slate-500 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notification Banner (No alert() used!) -->
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-5 py-5 flex flex-col justify-center">
+
+    <!-- ==================== VIEW 1: LANDING / CREATE OR JOIN ROOM ==================== -->
+    <section id="view-landing" class="max-w-xl w-full mx-auto">
+      <div class="glass-panel rounded-3xl p-6 sm:p-8 neon-border-orange relative overflow-hidden">
+        <div class="absolute -right-12 -top-12 w-44 h-44 bg-racing-orange/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute -left-12 -bottom-12 w-44 h-44 bg-racing-cyan/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="text-center mb-7">
+          <span class="inline-block px-3 py-1 rounded-full bg-racing-orange/15 border border-racing-orange/30 text-racing-orange text-xs font-bold uppercase tracking-wider mb-3">
+            Multiplayer Garage Auction
+          </span>
+          <h2 class="font-display text-3xl sm:text-4xl font-bold uppercase italic tracking-wide text-white">
+            Build The Fastest Machine
+          </h2>
+          <p class="text-slate-400 text-sm mt-2 leading-relaxed">
+            Every racer starts with a <strong class="text-slate-200">100 km/h Stock Bike</strong> and <strong class="text-emerald-400">$1,000</strong>. Outbid rivals on random upgrade parts to bolt them onto your bike and dominate the final drag race!
+          </p>
+        </div>
+
+        <!-- Player Name Input -->
+        <div class="mb-6">
+          <label for="player-name-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+            Your Racer Name
+          </label>
+          <input
+            id="player-name-input"
+            type="text"
+            maxlength="16"
+            placeholder="e.g. ApexRider"
+            class="w-full px-4 py-3.5 rounded-2xl bg-carbon-950/90 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-racing-orange focus:ring-2 focus:ring-racing-orange/25 font-medium transition"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Create Room Card -->
+          <div class="bg-carbon-800/70 border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-racing-orange/20 text-racing-orange flex items-center justify-center mb-3">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <h3 class="font-display font-bold text-lg text-white uppercase">Create Room</h3>
+              <p class="text-xs text-slate-400 mt-1 mb-4">Generate a 5-character team code and invite friends or AI racers.</p>
+            </div>
+            <button id="create-room-btn" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-racing-orange to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-display font-bold uppercase tracking-wider shadow-lg shadow-orange-600/25 transition active:scale-95">
+              Create Room
+            </button>
+          </div>
+
+          <!-- Join Room Card -->
+          <div class="bg-carbon-800/70 border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-racing-cyan/20 text-racing-cyan flex items-center justify-center mb-3">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 class="font-display font-bold text-lg text-white uppercase">Join Room</h3>
+              <input
+                id="join-code-input"
+                type="text"
+                maxlength="5"
+                placeholder="5-CHAR CODE"
+                class="w-full mt-2 mb-3 px-3 py-2.5 rounded-xl bg-carbon-950/90 border border-white/15 text-center font-display font-bold text-lg tracking-widest uppercase text-racing-cyan placeholder-slate-600 focus:outline-none focus:border-racing-cyan transition"
+              />
+            </div>
+            <button id="join-room-btn" class="w-full py-3 px-4 rounded-xl bg-racing-cyan/20 hover:bg-racing-cyan/30 border border-racing-cyan/50 text-racing-cyan font-display font-bold uppercase tracking-wider transition active:scale-95">
+              Join Room
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: LOBBY WAITING ROOM ==================== -->
+    <section id="view-lobby" class="hidden max-w-4xl w-full mx-auto">
+      <div class="glass-panel rounded-3xl p-6 sm:p-8">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-widest text-racing-orange">Paddock Lobby</span>
+            <h2 class="font-display text-2xl sm:text-3xl font-bold text-white uppercase mt-0.5">Waiting For Racers</h2>
+            <p class="text-sm text-slate-400 mt-1">Share the team code below so friends can join your auction room.</p>
+          </div>
+
+          <div class="flex items-center gap-3 bg-carbon-950 border border-racing-cyan/40 px-5 py-3 rounded-2xl">
+            <div>
+              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Team Code</div>
+              <div id="lobby-room-code" class="font-display text-3xl font-bold tracking-widest text-racing-cyan">-----</div>
+            </div>
+            <button id="lobby-copy-btn" class="ml-2 px-3 py-2 rounded-xl bg-racing-cyan/15 hover:bg-racing-cyan/25 text-racing-cyan text-xs font-bold uppercase tracking-wider transition">
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <!-- Players Grid -->
+        <div class="my-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Racers in Paddock (<span id="lobby-player-count">0</span>/6)
+            </h3>
+            <span class="text-xs text-slate-400">Starting Budget: <strong class="text-emerald-400">$1,000</strong> • Base Bike: <strong class="text-white">100 km/h</strong></span>
+          </div>
+          <div id="lobby-players-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Player Cards Injected Here -->
+          </div>
+        </div>
+
+        <!-- Host Controls -->
+        <div id="host-lobby-controls" class="hidden pt-5 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <button id="add-bot-btn" class="px-4 py-2.5 rounded-xl bg-carbon-700 hover:bg-carbon-600 border border-white/15 text-slate-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition">
+              <span>+ Add AI Racer</span>
+            </button>
+            <div class="flex items-center gap-2 bg-carbon-800 px-3 py-2 rounded-xl border border-white/10">
+              <label for="parts-count-select" class="text-xs text-slate-400 font-medium">Auction Stream:</label>
+              <select id="parts-count-select" class="bg-transparent text-white font-display font-bold text-sm focus:outline-none">
+                <option value="150" selected class="bg-carbon-900">150 Parts (Standard Room)</option>
+                <option value="200" class="bg-carbon-900">200 Parts (Pro Endurance)</option>
+                <option value="260" class="bg-carbon-900">260 Parts (Mega Paddock)</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="start-auction-btn" disabled class="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-display font-bold uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition active:scale-95">
+            Start Auction (Need 2+)
+          </button>
+        </div>
+
+        <!-- Guest Waiting Message -->
+        <div id="guest-lobby-banner" class="hidden pt-5 border-t border-white/10 text-center">
+          <p class="text-sm text-slate-300 animate-pulse">Waiting for the room host to start the auction...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: LIVE AUCTION ARENA (3-COLUMN COMMAND CENTER) ==================== -->
+    <section id="view-auction" class="hidden space-y-4">
+      <!-- Top Auction Command Bar -->
+      <div class="glass-panel rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 border border-white/10">
+        <div class="flex flex-wrap items-center gap-2.5">
+          <span class="px-3 py-1.5 rounded-xl bg-racing-orange/20 border border-racing-orange/40 text-racing-orange font-display font-bold text-sm uppercase">
+            Continuous Lot #<span id="auction-part-index">1</span> / <span id="auction-part-total">26</span>
+          </span>
+          <span id="auction-status-pill" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Bidding Active</span>
+          </span>
+        </div>
+
+        <!-- Host Auction Flow Controls: Stop/Pause Bid, Continue Bid, End Bid & Test Bikes Race -->
+        <div id="host-auction-controls" class="hidden flex-wrap items-center gap-2">
+          <button id="pause-bid-btn" class="px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-display font-bold uppercase tracking-wider transition flex items-center gap-1.5">
+            <span>⏸ Stop / Pause Bid</span>
+          </button>
+          <button id="resume-bid-btn" class="hidden px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-display font-bold uppercase tracking-wider transition flex items-center gap-1.5">
+            <span>▶ Continue Bid</span>
+          </button>
+          <button id="end-race-now-btn" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-racing-orange to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-display font-bold uppercase tracking-wider shadow-lg shadow-red-600/25 transition flex items-center gap-1.5">
+            <span>🏁 End Bid & Test Bikes Race</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">Your Cash</div>
+            <div id="my-cash-display" class="font-display font-bold text-lg text-emerald-400">$1,500</div>
+          </div>
+          <div class="h-8 w-px bg-white/10"></div>
+          <div class="text-right">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">Your Speed</div>
+            <div id="my-speed-display" class="font-display font-bold text-lg text-racing-cyan">100 km/h</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3-COLUMN COMMAND GRID -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+
+        <!-- ==================== LEFT PANEL (3 cols): ALL RACERS, SPEEDS & BOUGHT PARTS ==================== -->
+        <div class="xl:col-span-3 space-y-4">
+          <div class="glass-panel rounded-3xl p-4 border border-white/10">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xs font-bold uppercase tracking-widest text-white flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-racing-cyan"></span>
+                <span>All Racers & Bought Parts</span>
+              </h3>
+              <span class="text-[10px] text-slate-400 uppercase font-semibold">Live Roster</span>
+            </div>
+            <div id="rivals-list" class="space-y-3 max-h-[540px] overflow-y-auto pr-1">
+              <!-- Every racer card with speed + all their bought parts shown directly under their name -->
+            </div>
+          </div>
+
+          <!-- Compact Auction Ticker -->
+          <div class="glass-panel rounded-3xl p-4 border border-white/10">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-slate-300 mb-2">Live Bid Log</h3>
+            <div id="bid-feed-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-xs">
+              <div class="text-slate-500 italic">Waiting for opening bids...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== CENTER STAGE (4 cols): CONTINUOUS AUCTION + ANALYSIS + SPEED PREVIEW ==================== -->
+        <div class="xl:col-span-4 glass-panel rounded-3xl p-5 neon-border-orange relative overflow-hidden">
+          <!-- Paused Overlay Banner -->
+          <div id="paused-banner" class="hidden mb-3 px-3.5 py-2 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-200 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
+            <span>⏸ Auction Paused by Host</span>
+            <span class="text-[10px] font-normal">Bidding frozen</span>
+          </div>
+
+          <!-- Header: Tier Badge + 10-Point Rating + Timer -->
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-2">
+              <span id="part-rarity-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                Legendary
+              </span>
+              <span id="part-rating-badge" class="px-2.5 py-1 rounded-full text-[11px] font-display font-bold bg-racing-cyan/15 text-racing-cyan border border-racing-cyan/40">
+                ★ 9.4 / 10
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[11px] uppercase font-semibold text-slate-400">Timer</span>
+              <div id="auction-timer-box" class="px-3 py-1 rounded-xl bg-carbon-950 border border-racing-orange/50 font-display font-bold text-xl text-racing-orange min-w-[58px] text-center">
+                12s
+              </div>
+            </div>
+          </div>
+
+          <!-- Part Card Display -->
+          <div id="current-part-card" class="bg-carbon-950/90 border border-white/10 rounded-2xl p-4 text-center relative">
+            <div class="flex items-center justify-center gap-4">
+              <div id="current-part-icon" class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-carbon-800 to-carbon-900 border border-white/10 flex items-center justify-center shadow-inner">
+                <!-- Part SVG -->
+              </div>
+              <div class="text-left min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span id="current-part-category" class="text-[11px] font-bold uppercase tracking-widest text-racing-orange">Engine Block</span>
+                  <span id="current-part-version" class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-slate-300">v4.0</span>
+                </div>
+                <h2 id="current-part-name" class="font-display text-xl sm:text-2xl font-bold text-white leading-tight mt-0.5 truncate">Titanium V4 GP Engine</h2>
+                <div class="mt-1.5 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-display font-bold text-sm">
+                  <span id="current-part-boost">+38 km/h</span>
+                  <span class="text-[11px] font-sans font-normal text-emerald-300">Base Output</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Tabs: Speed Preview Tab vs. 10-Point Comparative Analysis Tab -->
+          <div class="mt-3 bg-carbon-900/90 border border-white/10 rounded-2xl p-3.5">
+            <div class="flex items-center gap-1 bg-carbon-950 p-1 rounded-xl mb-3">
+              <button id="tab-btn-preview" class="flex-1 py-1.5 px-1.5 rounded-lg bg-racing-cyan/20 border border-racing-cyan/40 text-racing-cyan font-display font-bold text-[11px] uppercase tracking-wider transition">
+                ⚡ Speed Preview
+              </button>
+              <button id="tab-btn-analysis" class="flex-1 py-1.5 px-1.5 rounded-lg text-slate-400 hover:text-white font-display font-bold text-[11px] uppercase tracking-wider transition">
+                📊 10-Pt Analysis
+              </button>
+              <button id="tab-btn-engines" class="flex-1 py-1.5 px-1.5 rounded-lg text-slate-400 hover:text-white font-display font-bold text-[11px] uppercase tracking-wider transition">
+                🔧 Engine Picker
+              </button>
+            </div>
+
+            <!-- Tab 1: Live Speed Preview if Applied to Your Bike -->
+            <div id="tab-content-preview" class="space-y-2">
+              <div class="flex items-center justify-between text-xs text-slate-400">
+                <span>If bolted onto <strong class="text-white">Your Bike</strong>:</span>
+                <span id="preview-slot-status" class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase">New Slot Upgrade</span>
+              </div>
+              <div class="bg-carbon-950 border border-white/10 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] uppercase text-slate-500">Current</div>
+                  <div id="preview-current-speed" class="font-display font-bold text-lg text-slate-300">100 km/h</div>
+                </div>
+                <div class="text-racing-cyan font-display font-bold text-lg">➔</div>
+                <div class="text-right">
+                  <div class="text-[10px] uppercase text-racing-cyan">Projected Speed</div>
+                  <div class="flex items-baseline justify-end gap-1.5">
+                    <span id="preview-projected-speed" class="font-display font-bold text-2xl text-white">138 km/h</span>
+                    <span id="preview-net-delta" class="font-display font-bold text-xs text-emerald-400">(+38)</span>
+                  </div>
+                </div>
+              </div>
+              <p id="preview-swap-note" class="text-[11px] text-slate-400 leading-snug">
+                Empty <span class="text-slate-200 font-semibold">Engine</span> slot — full speed bonus applies!
+              </p>
+            </div>
+
+            <!-- Tab 2: 10-Point Comparative Rating & Version Analysis -->
+            <div id="tab-content-analysis" class="hidden space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">Part Benchmark Score</span>
+                <span id="analysis-score-text" class="font-display font-bold text-sm text-racing-amber">9.4 / 10 (Top Tier)</span>
+              </div>
+              <div class="w-full h-2 bg-carbon-950 rounded-full overflow-hidden border border-white/5">
+                <div id="analysis-score-bar" class="h-full bg-gradient-to-r from-racing-orange via-amber-400 to-racing-cyan" style="width: 94%;"></div>
+              </div>
+              <p id="analysis-verdict-text" class="text-xs text-slate-300 leading-relaxed bg-carbon-950/80 p-2.5 rounded-xl border border-white/5">
+                Outperforms Street & Sport versions by +18 to +26 km/h. High value-per-dollar ratio for straight-line top speed.
+              </p>
+              <div id="analysis-versions-compare" class="flex flex-wrap gap-1 pt-0.5 text-[10px]">
+                <!-- Other versions of this category listed here -->
+              </div>
+            </div>
+
+            <!-- Tab 3: Direct Engine & Architecture Selector (Inline, V, Flat/Boxer, W) -->
+            <div id="tab-content-engines" class="hidden space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-white uppercase tracking-wider">Choose Engine Architecture</span>
+                <span class="text-[10px] text-racing-cyan">Direct Lot Select</span>
+              </div>
+              <select id="engine-arch-filter" class="w-full px-2.5 py-1.5 rounded-xl bg-carbon-950 border border-white/15 text-xs text-white font-semibold focus:outline-none focus:border-racing-orange">
+                <option value="ALL">All Engine Architectures (14 Versions)</option>
+                <option value="Inline / Straight">Inline / Straight (2, 3, 4, 5, 6-Cyl)</option>
+                <option value="V Engine">V Engine (V6, V8, V10, V12)</option>
+                <option value="Flat / Boxer">Flat / Boxer (Flat-4, Flat-6)</option>
+                <option value="W Engine">W Engine (W8, W12, W16)</option>
+              </select>
+              <div id="engine-direct-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                <!-- Direct Engine Versions Injected Here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-PANEL B: LEGENDARY TIER BENCHMARK & TOP VERSIONS SHOWCASE -->
+          <div class="glass-panel rounded-3xl p-4 border border-amber-500/30 bg-gradient-to-b from-amber-950/15 to-carbon-900/90 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1">
+                  <span>👑 Legendary Tier</span>
+                </span>
+                <span class="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-300">9.0+ Rated</span>
+              </div>
+              <h3 class="font-display text-lg font-bold text-white">Pro & Legendary Parts</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5 mb-3">
+                Compare top-rated versions across all 13 bike parts so you know when to save cash vs. bid big!
+              </p>
+
+              <!-- Legendary & Top Version List -->
+              <div id="legendary-tier-list" class="space-y-2 max-h-[475px] overflow-y-auto pr-1">
+                <!-- Legendary Tier Parts Injected Here -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: FINAL DRAG RACE & WINNER PODIUM ==================== -->
+    <section id="view-showdown" class="hidden max-w-5xl w-full mx-auto space-y-6">
+      <div class="glass-panel rounded-3xl p-6 sm:p-8 neon-border-orange">
+        <div class="text-center mb-6">
+          <span class="inline-block px-3 py-1 rounded-full bg-racing-cyan/15 border border-racing-cyan/30 text-racing-cyan text-xs font-bold uppercase tracking-widest mb-2">
+            All Parts Auctioned
+          </span>
+          <h2 class="font-display text-3xl sm:text-4xl font-bold uppercase italic text-white">
+            Final Drag Strip Showdown
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">Comparing final bike top speeds on the quarter-mile strip!</p>
+        </div>
+
+        <!-- Animated Drag Race Track -->
+        <div id="drag-race-track" class="bg-carbon-950 border border-white/10 rounded-2xl p-4 sm:p-6 space-y-4 relative overflow-hidden">
+          <!-- Checkered Finish Line -->
+          <div class="absolute top-0 bottom-0 right-12 sm:right-16 w-3 bg-gradient-to-b from-white via-slate-600 to-white opacity-25 pointer-events-none"></div>
+          <div id="race-lanes-container" class="space-y-4">
+            <!-- Lanes Injected Here -->
+          </div>
+        </div>
+
+        <!-- Champion Banner (Revealed after race animation completes) -->
+        <div id="champion-banner" class="hidden mt-6 bg-gradient-to-r from-amber-500/20 via-racing-orange/20 to-amber-500/20 border border-amber-400/50 rounded-2xl p-6 text-center">
+          <div class="text-4xl mb-2">🏆</div>
+          <div class="text-xs font-bold uppercase tracking-widest text-amber-300">Grand Auction Champion</div>
+          <h3 id="champion-name" class="font-display text-3xl sm:text-4xl font-bold text-white uppercase mt-1">Player Name</h3>
+          <p id="champion-stats" class="text-sm text-amber-200/90 mt-1">Top Speed: 215 km/h • Remaining Cash: $120</p>
+        </div>
+
+        <!-- Side-by-Side Final Garage Comparison -->
+        <div class="mt-8">
+          <h3 class="text-xs font-bold uppercase tracking-widest text-slate-300 mb-4">Final Garage Builds</h3>
+          <div id="final-garages-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Final Bikes Injected Here -->
+          </div>
+        </div>
+
+        <!-- Play Again Controls -->
+        <div class="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button id="play-again-btn" class="hidden w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-racing-orange to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-display font-bold uppercase tracking-wider shadow-lg shadow-orange-600/25 transition active:scale-95">
+            Start New Auction Round
+          </button>
+          <p id="guest-play-again-msg" class="hidden text-sm text-slate-400">
+            Waiting for the host to start another round...
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Firebase & Game Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // ==================== 1. FIREBASE & FALLBACK INITIALIZATION ====================
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'motobid-auction-app';
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let useLocalFallback = false;
+
+    try {
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+      } else {
+        useLocalFallback = true;
+      }
+    } catch (err) {
+      console.warn("Firebase init fallback triggered:", err);
+      useLocalFallback = true;
+    }
+
+    // ==================== 2. SOUND EFFECTS ENGINE (WEB AUDIO API) ====================
+    class SoundEngine {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, type, duration, vol = 0.12, slideTo = null) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          if (slideTo) {
+            osc.frequency.exponentialRampToValueAtTime(slideTo, this.ctx.currentTime + duration);
+          }
+          gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      }
+      bid() {
+        this.playTone(520, 'triangle', 0.14, 0.14, 780);
+      }
+      tick() {
+        this.playTone(880, 'sine', 0.06, 0.06);
+      }
+      sold() {
+        this.playTone(300, 'sawtooth', 0.18, 0.15, 140);
+        setTimeout(() => this.playTone(587.33, 'triangle', 0.35, 0.16, 880), 140);
+      }
+      rev() {
+        this.playTone(95, 'sawtooth', 0.85, 0.16, 360);
+      }
+      pause() {
+        this.playTone(440, 'sine', 0.15, 0.12, 330);
+      }
+    }
+    const sfx = new SoundEngine();
+
+    // ==================== 2B. APP STATE & HELPERS ====================
+    const state = {
+      userId: 'racer_' + Math.random().toString(36).substring(2, 9),
+      playerName: '',
+      roomCode: null,
+      roomData: null,
+      unsubscribeRoom: null,
+      timerInterval: null,
+      botInterval: null,
+      raceAnimated: false,
+      activeCenterTab: 'preview'
+    };
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 5; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const colors = {
+        info: 'bg-carbon-800 border-racing-cyan/40 text-slate-100',
+        success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200',
+        warn: 'bg-amber-950/95 border-amber-500/50 text-amber-200',
+        error: 'bg-red-950/95 border-red-500/50 text-red-200'
+      };
+      const toast = document.createElement('div');
+      toast.className = `px-4 py-2.5 rounded-2xl border shadow-xl text-xs font-semibold transition-all duration-300 ${colors[type] || colors.info}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-6px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 2800);
+    }
+
+    function computePlayerBuild(partsList = []) {
+      const slotMap = {};
+      for (const pt of partsList) {
+        if (!pt || !pt.category) continue;
+        if (!slotMap[pt.category] || pt.boost > slotMap[pt.category].boost) {
+          slotMap[pt.category] = pt;
+        }
+      }
+      let totalBoost = 0;
+      Object.values(slotMap).forEach(pt => {
+        totalBoost += (pt.boost || 0);
+      });
+      return {
+        slotMap,
+        totalSpeed: 100 + totalBoost,
+        filledCount: Object.keys(slotMap).length
+      };
+    }
+
+    function renderBikeSVG(installedParts = [], primaryColor = '#ff5500', compact = false) {
+      const hasEngine = installedParts.some(p => p.category === 'Engine');
+      const hasSilencer = installedParts.some(p => p.category === 'Silencer');
+      const hasTurbo = installedParts.some(p => p.category === 'Turbo');
+      const hasNitro = installedParts.some(p => p.category === 'Nitro');
+      const hasAero = installedParts.some(p => p.category === 'Aero');
+      const hasFrame = installedParts.some(p => p.category === 'Frame');
+      const hasWheels = installedParts.some(p => p.category === 'Wheels');
+
+      const frameStroke = hasFrame ? '#00f5d4' : '#94a3b8';
+      const wheelStroke = hasWheels ? '#ffb703' : '#64748b';
+      const bodyFill = hasAero ? primaryColor : '#334155';
+
+      return `
+        <svg viewBox="0 0 220 90" class="${compact ? 'w-24 h-10' : 'w-full h-full max-h-32'} bike-float overflow-visible">
+          ${hasNitro ? `<path class="flame-anim" d="M26 56 L6 52 L16 58 L4 62 L26 61 Z" fill="#00f5d4"/>` : ''}
+          ${hasSilencer ? `<rect x="25" y="53" width="38" height="8" rx="3" fill="${hasSilencer ? '#f59e0b' : '#475569'}" transform="rotate(-12 25 53)"/>` : ''}
+          <circle cx="46" cy="66" r="17" fill="#0f172a" stroke="${wheelStroke}" stroke-width="3.5"/>
+          <circle cx="46" cy="66" r="6" fill="${wheelStroke}"/>
+          <circle cx="174" cy="66" r="17" fill="#0f172a" stroke="${wheelStroke}" stroke-width="3.5"/>
+          <circle cx="174" cy="66" r="6" fill="${wheelStroke}"/>
+          <path d="M46 66 L96 42 L152 38 L174 66" fill="none" stroke="${frameStroke}" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M96 42 L126 63 L174 66" fill="none" stroke="${frameStroke}" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M78 36 Q116 24 156 36 L142 46 L86 45 Z" fill="${bodyFill}" stroke="#ffffff22" stroke-width="1"/>
+          ${hasEngine ? `<rect x="96" y="45" width="30" height="17" rx="4" fill="#ff5500" stroke="#fde047" stroke-width="1.2"/>` : `<rect x="98" y="47" width="26" height="14" rx="3" fill="#475569"/>`}
+          ${hasTurbo ? `<circle cx="88" cy="52" r="7" fill="#38bdf8" stroke="#e0f2fe" stroke-width="1.2"/>` : ''}
+        </svg>
+      `;
+    }
+
+    // ==================== 3. 13 REQUIRED BIKE CATEGORIES & MULTI-VERSION PARTS CATALOG ====================
+    const REQUIRED_CATEGORIES = [
+      { key: 'Engine', label: '1. Engine Block' },
+      { key: 'Silencer', label: '2. Silencer / Exhaust' },
+      { key: 'Turbo', label: '3. Turbocharger' },
+      { key: 'Gearbox', label: '4. Racing Gearbox' },
+      { key: 'ECU', label: '5. ECU & Fuel Map' },
+      { key: 'Aero', label: '6. Aero Fairing' },
+      { key: 'Frame', label: '7. Chassis / Frame' },
+      { key: 'Wheels', label: '8. Forged Wheels' },
+      { key: 'Tires', label: '9. Slick Racing Tires' },
+      { key: 'Suspension', label: '10. Front Suspension' },
+      { key: 'Brakes', label: '11. Brake Calipers' },
+      { key: 'Intake', label: '12. Ram-Air Intake' },
+      { key: 'Nitro', label: '13. NOS / Nitrous Kit' }
+    ];
+
+    // Multiple versions of all 13 required bike parts so multiple players can compete for different editions!
+    const PARTS_CATALOG = [
+      // 1A. INLINE / STRAIGHT ENGINES (2, 3, 4, 5, 6-Cylinder)
+      { id: 'eng_inl_2', category: 'Engine', arch: 'Inline / Straight', version: 'Inline-2 (Parallel Twin)', name: 'Inline-2 Parallel Twin 700cc Engine', boost: 16, rating: 6.2, rarity: 'Street', visual: 'turbo', analysis: 'Inline / Straight: 2 cylinders arranged in a single row. Lightweight parallel twin (+16 km/h) with punchy low-end torque.' },
+      { id: 'eng_inl_3', category: 'Engine', arch: 'Inline / Straight', version: 'Inline-3 (Triple)', name: 'Inline-3 Crossplane Triple 900cc Engine', boost: 22, rating: 7.4, rarity: 'Sport', visual: 'turbo', analysis: 'Inline / Straight: 3 cylinders in a single row. Balances twin torque with high-RPM scream (+22 km/h).' },
+      { id: 'eng_inl_4', category: 'Engine', arch: 'Inline / Straight', version: 'Inline-4 (Superbike)', name: 'Inline-4 1000cc Superbike Engine', boost: 28, rating: 8.2, rarity: 'Epic', visual: 'turbo', analysis: 'Inline / Straight: 4 cylinders in a single row. Classic high-revving 16,000 RPM superbike mill (+28 km/h).' },
+      { id: 'eng_inl_5', category: 'Engine', arch: 'Inline / Straight', version: 'Inline-5 (5-Cylinder)', name: 'Inline-5 Turbocharged Track Engine', boost: 33, rating: 8.8, rarity: 'Epic', visual: 'turbo', analysis: 'Inline / Straight: 5 cylinders in a single row. Rare uneven firing order delivering relentless mid-to-top pull (+33 km/h).' },
+      { id: 'eng_inl_6', category: 'Engine', arch: 'Inline / Straight', version: 'Inline-6 (6-Cylinder)', name: 'Inline-6 1600cc Turbine-Smooth Engine', boost: 37, rating: 9.2, rarity: 'Legendary', visual: 'turbo', analysis: 'Inline / Straight: 6 cylinders in a single row. Silky harmonic balance and huge top-end output (+37 km/h).' },
+
+      // 1B. V ENGINES (V6, V8, V10, V12)
+      { id: 'eng_v_6', category: 'Engine', arch: 'V Engine', version: 'V6 (60° V-Twin-Bank)', name: 'Compact 60° V6 Race Engine', boost: 31, rating: 8.5, rarity: 'Epic', visual: 'turbo', analysis: 'V Engine: Cylinders arranged in two angled banks forming a V shape. Compact V6 geometry (+31 km/h) with rapid throttle snap.' },
+      { id: 'eng_v_8', category: 'Engine', arch: 'V Engine', version: 'V8 (Crossplane V8)', name: '90° Billet V8 Drag-Spec Engine', boost: 38, rating: 9.3, rarity: 'Legendary', visual: 'turbo', analysis: 'V Engine: Two angled banks in a V shape. Brutal V8 torque curve (+38 km/h) built for quarter-mile dominance.' },
+      { id: 'eng_v_10', category: 'Engine', arch: 'V Engine', version: 'V10 (Formula-Spec)', name: 'High-Revving 18,000 RPM V10 Engine', boost: 43, rating: 9.6, rarity: 'Legendary', visual: 'turbo', analysis: 'V Engine: Two angled banks forming a V shape. Formula-inspired V10 screamer (+43 km/h) with blistering acceleration.' },
+      { id: 'eng_v_12', category: 'Engine', arch: 'V Engine', version: 'V12 (65° Prototype)', name: '65° Titanium V12 Hyper-Bike Engine', boost: 47, rating: 9.8, rarity: 'Legendary', visual: 'turbo', analysis: 'V Engine: Two angled banks forming a V shape. 12-cylinder flagship powerhouse (+47 km/h) for elite straight-line speed.' },
+
+      // 1C. FLAT / BOXER ENGINES (Flat-4, Flat-6)
+      { id: 'eng_flt_4', category: 'Engine', arch: 'Flat / Boxer', version: 'Flat-4 (Boxer-4)', name: 'Flat-4 (Boxer-4) Low-CG Engine', boost: 25, rating: 7.9, rarity: 'Sport', visual: 'turbo', analysis: 'Flat / Boxer Engine: Cylinders arranged horizontally opposite each other. Ultra-low center of gravity (+25 km/h) eliminates wheelie loss.' },
+      { id: 'eng_flt_6', category: 'Engine', arch: 'Flat / Boxer', version: 'Flat-6 (Boxer-6)', name: 'Flat-6 (Boxer-6) Twin-Cam Engine', boost: 34, rating: 9.0, rarity: 'Legendary', visual: 'turbo', analysis: 'Flat / Boxer Engine: Horizontally opposed 6-cylinder boxer layout (+34 km/h). Perfect primary balance and planted launch stability.' },
+
+      // 1D. W ENGINES (W8, W12, W16)
+      { id: 'eng_w_8', category: 'Engine', arch: 'W Engine', version: 'W8 (Multi-Bank)', name: 'Compact Multi-Bank W8 Engine', boost: 40, rating: 9.4, rarity: 'Legendary', visual: 'turbo', analysis: 'W Engine: Multi-bank layout arranged in a W configuration. Packs 8 cylinders into a short wheelbase (+40 km/h).' },
+      { id: 'eng_w_12', category: 'Engine', arch: 'W Engine', version: 'W12 (Twin-VR6 Bank)', name: 'Quad-Cam W12 Hyper-Torque Engine', boost: 46, rating: 9.7, rarity: 'Legendary', visual: 'turbo', analysis: 'W Engine: Multi-bank W configuration combining two narrow-angle banks (+46 km/h). Massive displacement density.' },
+      { id: 'eng_w_16', category: 'Engine', arch: 'W Engine', version: 'W16 (Quad-Scroll)', name: '8.0L W16 Quad-Bank Apex Engine', boost: 52, rating: 10.0, rarity: 'Legendary', visual: 'turbo', analysis: 'W Engine: Ultimate 16-cylinder multi-bank W configuration (+52 km/h, 10.0/10). Undisputed king of raw top speed!' },
+
+      // 2. SILENCER / EXHAUST (4 Versions)
+      { id: 'sil_v1', category: 'Silencer', version: 'v1.0 Slip-On', name: 'Steel Sport Slip-On Silencer', boost: 10, rating: 5.8, rarity: 'Street', visual: 'exhaust', analysis: 'Budget slip-on silencer (+10 km/h). Best bought cheap ($20-$50) to fill your Silencer slot early.' },
+      { id: 'sil_v2', category: 'Silencer', version: 'v2.0 Twin-Pipe', name: 'Dual-Exit Stainless Silencer', boost: 16, rating: 7.4, rarity: 'Sport', visual: 'exhaust', analysis: 'Balanced twin-exit exhaust (+16 km/h). Improves scavenging over stock pipes at moderate cost.' },
+      { id: 'sil_v3', category: 'Silencer', version: 'v3.0 Carbon', name: 'Akrapovic Carbon Pro Silencer', boost: 23, rating: 8.8, rarity: 'Epic', visual: 'exhaust', analysis: 'Ultra-lightweight carbon silencer (+23 km/h). Top-tier acoustic & flow efficiency.' },
+      { id: 'sil_v4', category: 'Silencer', version: 'v4.0 GP Shorty', name: 'Full Titanium GP Shorty Silencer', boost: 29, rating: 9.5, rarity: 'Legendary', visual: 'exhaust', analysis: '9.5/10 Featherweight titanium GP exhaust (+29 km/h). Best silencer version in the paddock.' },
+
+      // 3. TURBOCHARGER (3 Versions)
+      { id: 'trb_v1', category: 'Turbo', version: 'v1.0 Compact', name: 'Low-Boost Street Turbo', boost: 18, rating: 7.1, rarity: 'Sport', visual: 'turbo', analysis: 'Quick-spooling compact turbo (+18 km/h). Great budget forced-induction option.' },
+      { id: 'trb_v2', category: 'Turbo', version: 'v2.0 Twin-Scroll', name: 'Twin-Scroll Ball-Bearing Turbo', boost: 28, rating: 8.7, rarity: 'Epic', visual: 'turbo', analysis: 'Zero-lag twin-scroll boost (+28 km/h). Pairs brilliantly with any upgraded Engine.' },
+      { id: 'trb_v3', category: 'Turbo', version: 'v3.0 Billet', name: 'Billet Ceramic-Ball Hyper Turbo', boost: 37, rating: 9.6, rarity: 'Legendary', visual: 'turbo', analysis: '9.6/10 Extreme boost pressure (+37 km/h). Turns even a mid-tier engine into a drag-strip monster.' },
+
+      // 4. RACING GEARBOX (3 Versions)
+      { id: 'gbx_v1', category: 'Gearbox', version: 'v1.0 Quickshift', name: 'Street Quickshifter Kit', boost: 11, rating: 6.4, rarity: 'Street', visual: 'ecu', analysis: 'Clutchless upshifts (+11 km/h). Affordable incremental gain for your Gearbox slot.' },
+      { id: 'gbx_v2', category: 'Gearbox', version: 'v2.0 Close-Ratio', name: '6-Speed Close-Ratio Race Gearbox', boost: 19, rating: 8.2, rarity: 'Epic', visual: 'ecu', analysis: 'Keeps RPMs right in the powerband (+19 km/h). Very solid efficiency score.' },
+      { id: 'gbx_v3', category: 'Gearbox', version: 'v3.0 Seamless', name: 'MotoGP Seamless-Shift Gearbox', boost: 26, rating: 9.3, rarity: 'Legendary', visual: 'ecu', analysis: '9.3/10 Zero power interruption between gears (+26 km/h). Elite drivetrain upgrade.' },
+
+      // 5. ECU & FUEL MAPPING (3 Versions)
+      { id: 'ecu_v1', category: 'ECU', version: 'v1.0 Stage-1', name: 'Stage-1 Piggyback Fuel Tuner', boost: 12, rating: 6.5, rarity: 'Street', visual: 'ecu', analysis: 'Basic fuel & ignition remap (+12 km/h). Cheap way to unlock early rev limit.' },
+      { id: 'ecu_v2', category: 'ECU', version: 'v2.0 Race ECU', name: 'Programmable Standalone Race ECU', boost: 20, rating: 8.3, rarity: 'Epic', visual: 'ecu', analysis: 'Custom launch control & timing map (+20 km/h). Strong mid-round pickup.' },
+      { id: 'ecu_v3', category: 'ECU', version: 'v3.0 Telemetry AI', name: 'Magneti Marelli Factory GP ECU', boost: 27, rating: 9.4, rarity: 'Legendary', visual: 'ecu', analysis: '9.4/10 Real-time traction & wheelie telemetry ECU (+27 km/h). Top electronics package.' },
+
+      // 6. AERO FAIRING (3 Versions)
+      { id: 'aer_v1', category: 'Aero', version: 'v1.0 Windscreen', name: 'Double-Bubble Race Windscreen', boost: 10, rating: 6.1, rarity: 'Street', visual: 'aero', analysis: 'Reduces rider helmet drag (+10 km/h). Good low-cost aero starter.' },
+      { id: 'aer_v2', category: 'Aero', version: 'v2.0 Track Body', name: 'Fiberglass Full Track Fairing', boost: 18, rating: 7.9, rarity: 'Sport', visual: 'aero', analysis: 'Streamlined full-body aero kit (+18 km/h). Cuts high-speed wind resistance.' },
+      { id: 'aer_v3', category: 'Aero', version: 'v3.0 Carbon Winglets', name: 'Wind-Tunnel Carbon Downforce Fairing', boost: 26, rating: 9.2, rarity: 'Legendary', visual: 'aero', analysis: '9.2/10 Full carbon bodywork with GP winglets (+26 km/h). Best aerodynamic package.' },
+
+      // 7. CHASSIS / FRAME (3 Versions)
+      { id: 'frm_v1', category: 'Frame', version: 'v1.0 Braced', name: 'Chromoly Reinforced Trellis Frame', boost: 12, rating: 6.6, rarity: 'Street', visual: 'frame', analysis: 'Stiffer chassis stability (+12 km/h). Solid foundational frame upgrade.' },
+      { id: 'frm_v2', category: 'Frame', version: 'v2.0 Twin-Spar', name: 'CNC Billet Aluminum Twin-Spar Frame', boost: 20, rating: 8.4, rarity: 'Epic', visual: 'frame', analysis: 'Sheds 14 kg of chassis weight (+20 km/h). Great speed-to-cost balance.' },
+      { id: 'frm_v3', category: 'Frame', version: 'v3.0 Monocoque', name: 'Autoclave Carbon Monocoque Frame', boost: 28, rating: 9.5, rarity: 'Legendary', visual: 'frame', analysis: '9.5/10 Featherweight carbon chassis (+28 km/h). Dramatic power-to-weight boost.' },
+
+      // 8. FORGED WHEELS (3 Versions)
+      { id: 'whl_v1', category: 'Wheels', version: 'v1.0 Flow-Formed', name: 'Lightweight Alloy Sport Wheels', boost: 10, rating: 6.3, rarity: 'Street', visual: 'wheels', analysis: 'Lower rotational mass than stock cast wheels (+10 km/h).' },
+      { id: 'whl_v2', category: 'Wheels', version: 'v2.0 Forged Alu', name: 'Marchesini Forged Aluminum Wheels', boost: 17, rating: 8.0, rarity: 'Sport', visual: 'wheels', analysis: 'Faster spool-up and braking (+17 km/h). Reliable mid-tier wheel set.' },
+      { id: 'whl_v3', category: 'Wheels', version: 'v3.0 Carbon BST', name: 'BST Woven Carbon Fiber Wheels', boost: 25, rating: 9.3, rarity: 'Legendary', visual: 'wheels', analysis: '9.3/10 Ultra-low rotational inertia (+25 km/h). Highest-rated wheel upgrade.' },
+
+      // 9. SLICK RACING TIRES (2 Versions)
+      { id: 'tir_v1', category: 'Tires', version: 'v1.0 Hypersport', name: 'Dual-Compound Hypersport Tires', boost: 11, rating: 6.8, rarity: 'Sport', visual: 'wheels', analysis: 'High-grip street/track rubber (+11 km/h). Prevents wheelspin off the line.' },
+      { id: 'tir_v2', category: 'Tires', version: 'v2.0 Qualifying Slick', name: 'Soft-Compound MotoGP Qualifying Slicks', boost: 21, rating: 9.1, rarity: 'Legendary', visual: 'wheels', analysis: '9.1/10 Maximum launch traction (+21 km/h). Essential for putting high horsepower down.' },
+
+      // 10. FRONT SUSPENSION (2 Versions)
+      { id: 'sus_v1', category: 'Suspension', version: 'v1.0 Cartridge', name: 'Adjustable Race Fork Cartridges', boost: 10, rating: 6.4, rarity: 'Street', visual: 'frame', analysis: 'Controlled front-end dive (+10 km/h). Economical suspension upgrade.' },
+      { id: 'sus_v2', category: 'Suspension', version: 'v2.0 Ohlins Gas', name: 'Ohlins FGR Pressurized Gas Forks', boost: 19, rating: 9.0, rarity: 'Legendary', visual: 'frame', analysis: '9.0/10 WorldSBK-spec pressurized forks (+19 km/h). Keeps power planted on bumpy tarmac.' },
+
+      // 11. BRAKE CALIPERS (2 Versions)
+      { id: 'brk_v1', category: 'Brakes', version: 'v1.0 Sintered', name: '4-Piston Radial Sintered Brakes', boost: 9, rating: 6.0, rarity: 'Street', visual: 'wheels', analysis: 'Late-braking confidence (+9 km/h). Good filler slot if cheap.' },
+      { id: 'brk_v2', category: 'Brakes', version: 'v2.0 Brembo GP4', name: 'Brembo GP4-RR Carbon-Ceramic Kit', boost: 18, rating: 9.0, rarity: 'Legendary', visual: 'wheels', analysis: '9.0/10 Featherweight carbon rotors & monoblock calipers (+18 km/h).' },
+
+      // 12. RAM-AIR INTAKE (2 Versions)
+      { id: 'int_v1', category: 'Intake', version: 'v1.0 High-Flow', name: 'K&N High-Flow Velocity Stacks', boost: 11, rating: 6.7, rarity: 'Sport', visual: 'aero', analysis: 'Crisper throttle response (+11 km/h). Solid value intake part.' },
+      { id: 'int_v2', category: 'Intake', version: 'v2.0 Carbon Duct', name: 'Pressurized Carbon Ram-Air Box', boost: 21, rating: 9.1, rarity: 'Legendary', visual: 'aero', analysis: '9.1/10 Forces dense cold air into cylinders at 200+ km/h (+21 km/h).' },
+
+      // 13. NOS / NITROUS SYSTEM (3 Versions)
+      { id: 'nos_v1', category: 'Nitro', version: 'v1.0 Dry Shot', name: '50-Shot Dry Nitrous Oxide Kit', boost: 22, rating: 7.8, rarity: 'Sport', visual: 'nitro', analysis: 'Instant chemical horsepower (+22 km/h). Strong punch for its price.' },
+      { id: 'nos_v2', category: 'Nitro', version: 'v2.0 Wet Dual', name: '100-Shot Wet Dual-Fogger NOS', boost: 33, rating: 9.0, rarity: 'Epic', visual: 'nitro', analysis: '9.0/10 Massive quarter-mile surge (+33 km/h). Can swing any close race.' },
+      { id: 'nos_v3', category: 'Nitro', version: 'v3.0 Cryo Purge', name: 'Cryo-Cooled Direct-Port Hyper NOS', boost: 45, rating: 9.9, rarity: 'Legendary', visual: 'nitro', analysis: '9.9/10 Highest single-part speed boost in MotoBid (+45 km/h)! Expect fierce bidding wars.' }
+    ];
+
+    const BIKE_COLORS = ['#ff5500', '#00f5d4', '#a855f7', '#eab308', '#ec4899', '#10b981'];
+
+    function getPartIconSVG(category) {
+      const icons = {
+        Engine: `<svg class="w-9 h-9 text-racing-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>`,
+        Silencer: `<svg class="w-9 h-9 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>`,
+        Turbo: `<svg class="w-9 h-9 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+        Nitro: `<svg class="w-9 h-9 text-racing-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
+        Frame: `<svg class="w-9 h-9 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>`,
+        Aero: `<svg class="w-9 h-9 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>`,
+        Wheels: `<svg class="w-9 h-9 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>`
+      };
+      return icons[category] || icons.Nitro;
+    }
+
+    /**
+     * Generates a continuous stream of 150+ parts covering all 13 required categories
+     * and all 14 Engine architectures/versions (Inline 2-6, V6-V12, Flat 4/6, W8-W16).
+     */
+    function generateContinuousPartsStream(totalCount = 150) {
+      const targetCount = Math.max(150, totalCount);
+      const stream = [];
+
+      // First guarantee all 14 Engine architectures/versions appear in the room
+      const allEngines = PARTS_CATALOG.filter(p => p.category === 'Engine').sort(() => Math.random() - 0.5);
+      stream.push(...allEngines);
+
+      // Guarantee full cycles of all 13 required categories with varied versions
+      while (stream.length < targetCount) {
+        const catCycle = [...REQUIRED_CATEGORIES].sort(() => Math.random() - 0.5);
+        for (const cat of catCycle) {
+          if (stream.length >= targetCount) break;
+          const candidates = PARTS_CATALOG.filter(p => p.category === cat.key);
+          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          stream.push(pick);
+        }
+      }
+      return stream.slice(0, targetCount);
+    }
+
+    /**
+     * Allows any player to directly bring a chosen Engine version (or part) onto the auction block
+     * immediately if no bids are placed yet, or queue it as the very next lot!
+     */
+    async function selectEngineLotDirectly(partId) {
+      const room = state.roomData;
+      if (!room || room.status !== 'auction') return;
+      const chosenPart = PARTS_CATALOG.find(p => p.id === partId);
+      if (!chosenPart) return;
+
+      const updatedQueue = [...room.partsQueue];
+      const playerObj = room.players[state.userId];
+      const actorName = playerObj ? playerObj.name : 'Racer';
+
+      // If current lot has $0 bids and isn't mid-sold banner, swap it right onto the active block so anyone can bid immediately!
+      if (room.currentBid === 0 && !room.partSoldBanner) {
+        updatedQueue[room.currentPartIndex] = chosenPart;
+        sfx.bid();
+        await updateRoomState(room.code, {
+          partsQueue: updatedQueue,
+          roundEndsAt: Date.now() + 12000,
+          feed: [`🔧 ${actorName} selected ${chosenPart.name} (${chosenPart.arch}) onto the active auction block!`, ...(room.feed || [])].slice(0, 18)
+        });
+        showToast(`${chosenPart.version} is now live on the auction block!`, "success");
+      } else {
+        // Otherwise insert it as the very next lot in the queue
+        const insertIdx = Math.min(updatedQueue.length, room.currentPartIndex + 1);
+        updatedQueue.splice(insertIdx, 0, chosenPart);
+        sfx.bid();
+        await updateRoomState(room.code, {
+          partsQueue: updatedQueue,
+          feed: [`📌 ${actorName} queued ${chosenPart.name} (${chosenPart.arch}) as the next lot!`, ...(room.feed || [])].slice(0, 18)
+        });
+        showToast(`${chosenPart.version} queued up next!`, "info");
+      }
+    }
+
+    // ==================== 6. ROOM STORAGE ABSTRACTION (FIRESTORE / IN-MEMORY) ====================
+    const localRoomsMemory = {};
+
+    function getRoomRef(code) {
+      return doc(db, 'artifacts', appId, 'public', 'data', 'auction_rooms', code);
+    }
+
+    async function saveRoomState(code, data) {
+      if (useLocalFallback) {
+        localRoomsMemory[code] = JSON.parse(JSON.stringify(data));
+        handleRoomUpdate(localRoomsMemory[code]);
+        return;
+      }
+      await setDoc(getRoomRef(code), data);
+    }
+
+    async function updateRoomState(code, partial) {
+      if (useLocalFallback) {
+        if (!localRoomsMemory[code]) return;
+        Object.assign(localRoomsMemory[code], partial);
+        handleRoomUpdate(localRoomsMemory[code]);
+        return;
+      }
+      await updateDoc(getRoomRef(code), partial);
+    }
+
+    async function fetchRoomOnce(code) {
+      if (useLocalFallback) {
+        return localRoomsMemory[code] || null;
+      }
+      const snap = await getDoc(getRoomRef(code));
+      return snap.exists() ? snap.data() : null;
+    }
+
+    function subscribeToRoom(code) {
+      if (state.unsubscribeRoom) {
+        state.unsubscribeRoom();
+        state.unsubscribeRoom = null;
+      }
+      if (useLocalFallback) {
+        handleRoomUpdate(localRoomsMemory[code]);
+        return;
+      }
+      state.unsubscribeRoom = onSnapshot(
+        getRoomRef(code),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            handleRoomUpdate(docSnap.data());
+          } else {
+            showToast("Room was closed.", "error");
+            leaveRoom();
+          }
+        },
+        (error) => {
+          console.error("Room sync error:", error);
+          showToast("Sync connection issue. Retrying...", "warn");
+        }
+      );
+    }
+
+    // ==================== 7. LOBBY ACTIONS (CREATE, JOIN, ADD BOT, START) ====================
+    async function createRoom() {
+      const nameInput = document.getElementById('player-name-input').value.trim();
+      if (!nameInput) {
+        showToast("Please enter your racer name first!", "warn");
+        document.getElementById('player-name-input').focus();
+        return;
+      }
+      sfx.init();
+      state.playerName = nameInput;
+      const code = generateRoomCode();
+      state.roomCode = code;
+
+      const initialRoom = {
+        code,
+        hostId: state.userId,
+        status: 'lobby', // lobby | auction | paused | finished
+        isPaused: false,
+        pausedRemainingMs: 0,
+        createdAt: Date.now(),
+        partsQueue: [],
+        currentPartIndex: 0,
+        currentBid: 0,
+        highestBidderId: null,
+        highestBidderName: null,
+        roundEndsAt: 0,
+        partSoldBanner: null,
+        feed: [],
+        players: {
+          [state.userId]: {
+            id: state.userId,
+            name: state.playerName,
+            isBot: false,
+            cash: 1500,
+            speed: 100,
+            parts: [],
+            color: BIKE_COLORS[0]
+          }
+        }
+      };
+
+      try {
+        await saveRoomState(code, initialRoom);
+        subscribeToRoom(code);
+        showToast(`Room ${code} created! Share the code with your team.`, "success");
+      } catch (e) {
+        console.error(e);
+        showToast("Could not create room. Please try again.", "error");
+      }
+    }
+
+    async function joinRoom() {
+      const nameInput = document.getElementById('player-name-input').value.trim();
+      const codeInput = document.getElementById('join-code-input').value.trim().toUpperCase();
+      if (!nameInput) {
+        showToast("Please enter your racer name!", "warn");
+        document.getElementById('player-name-input').focus();
+        return;
+      }
+      if (codeInput.length !== 5) {
+        showToast("Enter a valid 5-character team code.", "warn");
+        document.getElementById('join-code-input').focus();
+        return;
+      }
+      sfx.init();
+      state.playerName = nameInput;
+
+      try {
+        const room = await fetchRoomOnce(codeInput);
+        if (!room) {
+          showToast(`No room found with code "${codeInput}".`, "error");
+          return;
+        }
+        const playerIds = Object.keys(room.players || {});
+        if (!room.players[state.userId] && playerIds.length >= 6) {
+          showToast("This room is full (max 6 racers).", "error");
+          return;
+        }
+        if (room.status !== 'lobby' && !room.players[state.userId]) {
+          showToast("Auction already in progress in that room!", "warn");
+          return;
+        }
+
+        state.roomCode = codeInput;
+        if (!room.players[state.userId]) {
+          const updatedPlayers = { ...room.players };
+          updatedPlayers[state.userId] = {
+            id: state.userId,
+            name: state.playerName,
+            isBot: false,
+            cash: 1500,
+            speed: 100,
+            parts: [],
+            color: BIKE_COLORS[playerIds.length % BIKE_COLORS.length]
+          };
+          await updateRoomState(codeInput, { players: updatedPlayers });
+        }
+        subscribeToRoom(codeInput);
+        showToast(`Joined room ${codeInput}!`, "success");
+      } catch (e) {
+        console.error(e);
+        showToast("Error joining room.", "error");
+      }
+    }
+
+    async function addBotRacer() {
+      const room = state.roomData;
+      if (!room || room.hostId !== state.userId) return;
+      const playerIds = Object.keys(room.players || {});
+      if (playerIds.length >= 6) {
+        showToast("Maximum 6 racers per room.", "warn");
+        return;
+      }
+      const botNames = ['TurboBot', 'NitroAI', 'ApexBot', 'VeloceAI', 'ApexV8'];
+      const usedNames = new Set(Object.values(room.players).map(p => p.name));
+      const botName = botNames.find(n => !usedNames.has(n)) || `RacerBot_${playerIds.length + 1}`;
+      const botId = 'bot_' + Math.random().toString(36).substring(2, 7);
+
+      const updatedPlayers = {
+        ...room.players,
+        [botId]: {
+          id: botId,
+          name: botName,
+          isBot: true,
+          cash: 1500,
+          speed: 100,
+          parts: [],
+          color: BIKE_COLORS[playerIds.length % BIKE_COLORS.length]
+        }
+      };
+      await updateRoomState(room.code, { players: updatedPlayers });
+      sfx.bid();
+    }
+
+    async function startAuctionRound() {
+      const room = state.roomData;
+      if (!room || room.hostId !== state.userId) return;
+      const playersList = Object.values(room.players || {});
+      if (playersList.length < 2) {
+        showToast("Need at least 2 racers to start!", "warn");
+        return;
+      }
+
+      const partCount = parseInt(document.getElementById('parts-count-select').value, 10) || 150;
+      const partsQueue = generateContinuousPartsStream(partCount);
+
+      // Reset all players to $1,500 cash & 100 km/h stock bike
+      const resetPlayers = {};
+      playersList.forEach((p, idx) => {
+        resetPlayers[p.id] = {
+          ...p,
+          cash: 1500,
+          speed: 100,
+          parts: [],
+          color: p.color || BIKE_COLORS[idx % BIKE_COLORS.length]
+        };
+      });
+
+      state.raceAnimated = false;
+
+      await updateRoomState(room.code, {
+        status: 'auction',
+        isPaused: false,
+        pausedRemainingMs: 0,
+        players: resetPlayers,
+        partsQueue,
+        currentPartIndex: 0,
+        currentBid: 0,
+        highestBidderId: null,
+        highestBidderName: null,
+        roundEndsAt: Date.now() + 12000,
+        partSoldBanner: null,
+        feed: [`Auction started! ${partsQueue.length} parts across 13 bike categories entering the block.`]
+      });
+      sfx.rev();
+    }
+
+    // Host Flow Control: Stop / Pause Bid
+    async function pauseAuctionBid() {
+      const room = state.roomData;
+      if (!room || room.hostId !== state.userId || room.status !== 'auction' || room.isPaused) return;
+      const rem = Math.max(2000, room.roundEndsAt - Date.now());
+      sfx.pause();
+      await updateRoomState(room.code, {
+        isPaused: true,
+        pausedRemainingMs: rem,
+        feed: ['⏸ Host paused the bidding.', ...(room.feed || [])].slice(0, 18)
+      });
+    }
+
+    // Host Flow Control: Continue / Resume Bid
+    async function resumeAuctionBid() {
+      const room = state.roomData;
+      if (!room || room.hostId !== state.userId || room.status !== 'auction' || !room.isPaused) return;
+      const rem = room.pausedRemainingMs || 8000;
+      sfx.bid();
+      await updateRoomState(room.code, {
+        isPaused: false,
+        pausedRemainingMs: 0,
+        roundEndsAt: Date.now() + rem,
+        feed: ['▶ Host resumed bidding!', ...(room.feed || [])].slice(0, 18)
+      });
+    }
+
+    // Host Flow Control: End Bid Now & Start Test Bikes Race for All Users
+    async function endAuctionAndStartRace() {
+      const room = state.roomData;
+      if (!room || room.hostId !== state.userId || room.status !== 'auction') return;
+      sfx.rev();
+      await updateRoomState(room.code, {
+        status: 'finished',
+        isPaused: false,
+        partSoldBanner: null,
+        feed: ['🏁 Host ended auction! Starting final bike speed showdown...', ...(room.feed || [])].slice(0, 18)
+      });
+    }
+
+    function leaveRoom() {
+      if (state.unsubscribeRoom) state.unsubscribeRoom();
+      clearInterval(state.timerInterval);
+      clearInterval(state.botInterval);
+      state.roomCode = null;
+      state.roomData = null;
+      document.getElementById('header-room-info').classList.add('hidden');
+      document.getElementById('header-room-info').classList.remove('flex');
+      switchView('landing');
+    }
+
+    // ==================== 8. BIDDING & HOST AUCTION ENGINE ====================
+    async function placeBid(bidAmount, bidderId = state.userId) {
+      const room = state.roomData;
+      if (!room || room.status !== 'auction' || room.partSoldBanner) return;
+      if (room.isPaused) {
+        if (bidderId === state.userId) showToast("Bidding is currently paused by the host.", "warn");
+        return;
+      }
+
+      const bidder = room.players[bidderId];
+      if (!bidder) return;
+
+      const minRequired = room.currentBid === 0 ? 20 : room.currentBid + 10;
+      if (bidAmount < minRequired) {
+        if (bidderId === state.userId) showToast(`Minimum bid is $${minRequired}!`, "warn");
+        return;
+      }
+      if (bidAmount > bidder.cash) {
+        if (bidderId === state.userId) showToast("Insufficient cash balance!", "error");
+        return;
+      }
+      if (room.highestBidderId === bidderId) {
+        if (bidderId === state.userId) showToast("You already hold the highest bid!", "info");
+        return;
+      }
+
+      // Extend timer slightly to 5s if less than 5s left to prevent unfair sniping
+      const now = Date.now();
+      const newEndsAt = Math.max(room.roundEndsAt, now + 5000);
+      const currentPart = room.partsQueue[room.currentPartIndex];
+      const newFeed = [`${bidder.name} bid $${bidAmount} on ${currentPart.name} (${currentPart.version})`, ...(room.feed || [])].slice(0, 18);
+
+      if (bidderId === state.userId) sfx.bid();
+
+      await updateRoomState(room.code, {
+        currentBid: bidAmount,
+        highestBidderId: bidderId,
+        highestBidderName: bidder.name,
+        roundEndsAt: newEndsAt,
+        feed: newFeed
+      });
+    }
+
+    // Host manages continuous countdown resolution & AI Bot bidding
+    function startHostLoop() {
+      clearInterval(state.timerInterval);
+      clearInterval(state.botInterval);
+
+      state.timerInterval = setInterval(async () => {
+        const room = state.roomData;
+        if (!room || room.hostId !== state.userId || room.status !== 'auction' || room.isPaused) return;
+
+        const now = Date.now();
+        const remaining = Math.ceil((room.roundEndsAt - now) / 1000);
+
+        if (remaining <= 3 && remaining > 0 && !room.partSoldBanner) {
+          sfx.tick();
+        }
+
+        // Resolve lot when timer hits 0
+        if (now >= room.roundEndsAt && !room.partSoldBanner) {
+          const part = room.partsQueue[room.currentPartIndex];
+          const updatedPlayers = { ...room.players };
+          let bannerInfo = {
+            sold: false,
+            winnerName: 'Unsold',
+            partName: part.name,
+            amount: 0,
+            boost: part.boost
+          };
+          let feedMsg = `${part.name} (${part.version}) went unsold.`;
+
+          if (room.highestBidderId && updatedPlayers[room.highestBidderId]) {
+            const winner = { ...updatedPlayers[room.highestBidderId] };
+            const newPartsList = [...(winner.parts || []), part];
+            const build = computePlayerBuild(newPartsList);
+
+            winner.cash = Math.max(0, winner.cash - room.currentBid);
+            winner.parts = newPartsList;
+            winner.speed = build.totalSpeed;
+            updatedPlayers[room.highestBidderId] = winner;
+
+            bannerInfo = {
+              sold: true,
+              winnerName: winner.name,
+              partName: `${part.name} (${part.version})`,
+              amount: room.currentBid,
+              boost: part.boost
+            };
+            feedMsg = `SOLD! ${winner.name} bought ${part.name} (${part.version}) for $${room.currentBid} → ${winner.speed} km/h!`;
+          }
+
+          await updateRoomState(room.code, {
+            players: updatedPlayers,
+            partSoldBanner: bannerInfo,
+            feed: [feedMsg, ...(room.feed || [])].slice(0, 18)
+          });
+
+          // Continuously advance to next part or finish after 2.4 seconds
+          setTimeout(async () => {
+            const latest = state.roomData;
+            if (!latest || latest.hostId !== state.userId || latest.status !== 'auction') return;
+            const nextIdx = latest.currentPartIndex + 1;
+
+            if (nextIdx >= latest.partsQueue.length) {
+              await updateRoomState(latest.code, {
+                status: 'finished',
+                isPaused: false,
+                partSoldBanner: null
+              });
+            } else {
+              await updateRoomState(latest.code, {
+                currentPartIndex: nextIdx,
+                currentBid: 0,
+                highestBidderId: null,
+                highestBidderName: null,
+                roundEndsAt: Date.now() + 12000,
+                partSoldBanner: null
+              });
+            }
+          }, 2400);
+        }
+      }, 450);
+
+      // AI Bot Smart Bidding Loop
+      state.botInterval = setInterval(async () => {
+        const room = state.roomData;
+        if (!room || room.hostId !== state.userId || room.status !== 'auction' || room.partSoldBanner || room.isPaused) return;
+
+        const bots = Object.values(room.players || {}).filter(p => p.isBot);
+        if (bots.length === 0) return;
+
+        const part = room.partsQueue[room.currentPartIndex];
+        const minNext = room.currentBid === 0 ? 20 : room.currentBid + 10;
+
+        const bot = bots[Math.floor(Math.random() * bots.length)];
+        if (room.highestBidderId === bot.id) return;
+
+        // Calculate net speed gain for this bot
+        const botBuild = computePlayerBuild(bot.parts || []);
+        const currentSlotPart = botBuild.slotMap[part.category];
+        const netGain = currentSlotPart ? Math.max(0, part.boost - currentSlotPart.boost) : part.boost;
+        if (netGain === 0) return; // Bot already owns equal or better version of this part!
+
+        const remainingParts = room.partsQueue.length - room.currentPartIndex;
+        const maxWilling = Math.min(
+          bot.cash,
+          Math.floor(netGain * (7.5 + Math.random() * 4.5))
+        );
+
+        const budgetGuard = remainingParts > 4 ? Math.floor(bot.cash * 0.55) : bot.cash;
+        const effectiveCap = Math.min(maxWilling, budgetGuard);
+
+        if (minNext <= effectiveCap && Math.random() < 0.58) {
+          const raiseExtra = (Math.random() < 0.3 && minNext + 15 <= effectiveCap) ? 15 : 0;
+          await placeBid(minNext + raiseExtra, bot.id);
+        }
+      }, 1650);
+    }
+
+    // ==================== 9. UI RENDERING & VIEW CONTROLLER ====================
+    function switchView(viewName) {
+      ['landing', 'lobby', 'auction', 'showdown'].forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (v === viewName) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+      });
+    }
+
+    function handleRoomUpdate(room) {
+      if (!room) return;
+      state.roomData = room;
+
+      const headerInfo = document.getElementById('header-room-info');
+      headerInfo.classList.remove('hidden');
+      headerInfo.classList.add('flex');
+      document.getElementById('header-room-code').textContent = room.code;
+
+      const isHost = room.hostId === state.userId;
+      if (isHost) startHostLoop();
+
+      if (room.status === 'lobby') {
+        switchView('lobby');
+        renderLobby(room, isHost);
+      } else if (room.status === 'auction') {
+        switchView('auction');
+        renderAuction(room, isHost);
+      } else if (room.status === 'finished') {
+        switchView('showdown');
+        renderShowdown(room, isHost);
+      }
+    }
+
+    function renderLobby(room, isHost) {
+      document.getElementById('lobby-room-code').textContent = room.code;
+      const players = Object.values(room.players || {});
+      document.getElementById('lobby-player-count').textContent = players.length;
+
+      const grid = document.getElementById('lobby-players-grid');
+      grid.innerHTML = players.map(p => `
+        <div class="bg-carbon-800/90 border ${p.id === state.userId ? 'border-racing-cyan/60' : 'border-white/10'} rounded-2xl p-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-display font-bold text-slate-950" style="background:${p.color}">
+              ${p.name.substring(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div class="font-bold text-sm text-white flex items-center gap-1.5">
+                <span>${p.name}</span>
+                ${p.id === room.hostId ? '<span class="px-1.5 py-0.5 text-[10px] rounded bg-racing-orange/20 text-racing-orange uppercase">Host</span>' : ''}
+                ${p.isBot ? '<span class="px-1.5 py-0.5 text-[10px] rounded bg-purple-500/20 text-purple-300 uppercase">AI</span>' : ''}
+              </div>
+              <div class="text-xs text-slate-400">Stock Bike • 100 km/h</div>
+            </div>
+          </div>
+          <div class="text-right font-display font-bold text-emerald-400 text-sm">$1,500</div>
+        </div>
+      `).join('');
+
+      const hostControls = document.getElementById('host-lobby-controls');
+      const guestBanner = document.getElementById('guest-lobby-banner');
+      if (isHost) {
+        hostControls.classList.remove('hidden');
+        guestBanner.classList.add('hidden');
+        const startBtn = document.getElementById('start-auction-btn');
+        if (players.length >= 2) {
+          startBtn.disabled = false;
+          startBtn.textContent = `Start Auction (${players.length} Racers)`;
+        } else {
+          startBtn.disabled = true;
+          startBtn.textContent = 'Start Auction (Need 2+)';
+        }
+      } else {
+        hostControls.classList.add('hidden');
+        guestBanner.classList.remove('hidden');
+      }
+    }
+
+    function renderAuction(room, isHost) {
+      const me = room.players[state.userId];
+      const part = room.partsQueue[room.currentPartIndex];
+      if (!part) return;
+
+      // Top bar stats & Host Flow Controls
+      document.getElementById('auction-part-index').textContent = room.currentPartIndex + 1;
+      document.getElementById('auction-part-total').textContent = room.partsQueue.length;
+
+      const hostCtrlBar = document.getElementById('host-auction-controls');
+      const pauseBtn = document.getElementById('pause-bid-btn');
+      const resumeBtn = document.getElementById('resume-bid-btn');
+      const statusPill = document.getElementById('auction-status-pill');
+      const pausedBanner = document.getElementById('paused-banner');
+
+      if (isHost) {
+        hostCtrlBar.classList.remove('hidden');
+        hostCtrlBar.classList.add('flex');
+      } else {
+        hostCtrlBar.classList.add('hidden');
+        hostCtrlBar.classList.remove('flex');
+      }
+
+      if (room.isPaused) {
+        pausedBanner.classList.remove('hidden');
+        pauseBtn.classList.add('hidden');
+        resumeBtn.classList.remove('hidden');
+        statusPill.className = 'px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5';
+        statusPill.innerHTML = `<span>⏸ Paused</span>`;
+      } else {
+        pausedBanner.classList.add('hidden');
+        pauseBtn.classList.remove('hidden');
+        resumeBtn.classList.add('hidden');
+        statusPill.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5';
+        statusPill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Live Bidding</span>`;
+      }
+
+      // Compute my build & render Right Panel Sub-Panel A (Your Garage + 13 Required Slots)
+      let myBuild = { slotMap: {}, totalSpeed: 100, filledCount: 0 };
+      if (me) {
+        myBuild = computePlayerBuild(me.parts || []);
+        document.getElementById('my-cash-display').textContent = `$${me.cash}`;
+        document.getElementById('my-speed-display').textContent = `${myBuild.totalSpeed} km/h`;
+        document.getElementById('my-garage-name').textContent = me.name;
+        document.getElementById('my-bike-svg-speed').innerHTML = `${myBuild.totalSpeed} <small class="text-[10px] font-normal">km/h</small>`;
+        document.getElementById('my-parts-count-badge').textContent = `${myBuild.filledCount} / 13 Slots`;
+
+        const tierLabel = myBuild.totalSpeed >= 260 ? 'MotoGP Prototype' : myBuild.totalSpeed >= 190 ? 'Superbike Spec' : myBuild.totalSpeed > 100 ? 'Tuned Spec' : 'Stock Spec';
+        document.getElementById('my-bike-tier-badge').textContent = tierLabel;
+        document.getElementById('my-bike-svg-wrapper').innerHTML = renderBikeSVG(Object.values(myBuild.slotMap), me.color);
+
+        // Render 13 Required Bike Systems Checklist
+        const slotsListEl = document.getElementById('my-13-slots-list');
+        slotsListEl.innerHTML = REQUIRED_CATEGORIES.map(cat => {
+          const installed = myBuild.slotMap[cat.key];
+          const isCurrentLotCategory = part.category === cat.key;
+          return `
+            <div class="px-2.5 py-1.5 rounded-xl border ${isCurrentLotCategory ? 'border-racing-orange/60 bg-racing-orange/10' : installed ? 'border-emerald-500/25 bg-carbon-950/80' : 'border-white/5 bg-carbon-950/40'} flex items-center justify-between gap-2 text-xs">
+              <div class="min-w-0">
+                <div class="font-semibold text-slate-300 truncate">${cat.label}</div>
+                ${installed
+                  ? `<div class="text-[11px] text-emerald-400 truncate">${installed.name} <span class="text-slate-400">(${installed.version})</span></div>`
+                  : `<div class="text-[10px] text-slate-500 italic">Empty — Stock</div>`}
+              </div>
+              <div class="shrink-0 font-display font-bold ${installed ? 'text-racing-cyan' : 'text-slate-600'}">
+                ${installed ? `+${installed.boost}` : '--'}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Right Panel Sub-Panel B (Legendary Tier Benchmark Showcase)
+      const legendaryParts = PARTS_CATALOG.filter(p => p.rating >= 9.0).sort((a, b) => b.rating - a.rating);
+      document.getElementById('legendary-tier-list').innerHTML = legendaryParts.map(lp => {
+        const owned = me && (me.parts || []).some(mp => mp.id === lp.id);
+        return `
+          <div class="p-2.5 rounded-2xl bg-carbon-950/85 border ${owned ? 'border-emerald-500/50' : 'border-amber-500/20'} flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-display font-bold text-[10px]">★ ${lp.rating.toFixed(1)}</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${lp.category}</span>
+                ${owned ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase">Owned</span>' : ''}
+              </div>
+              <div class="font-bold text-xs text-white truncate mt-0.5">${lp.name}</div>
+              <div class="text-[10px] text-slate-400">${lp.version}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="font-display font-bold text-sm text-emerald-400">+${lp.boost}</div>
+              <div class="text-[9px] text-slate-500 uppercase">km/h</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Center Stage: Current Part Info + 10-Point Rating
+      document.getElementById('part-rarity-badge').textContent = `${part.rarity} Tier`;
+      document.getElementById('part-rating-badge').textContent = `★ ${part.rating.toFixed(1)} / 10`;
+      document.getElementById('current-part-icon').innerHTML = getPartIconSVG(part.category);
+      document.getElementById('current-part-category').textContent = part.arch ? `${part.category} • ${part.arch}` : `${part.category} Slot`;
+      document.getElementById('current-part-version').textContent = part.version;
+      document.getElementById('current-part-name').textContent = part.name;
+      document.getElementById('current-part-boost').textContent = `+${part.boost} km/h`;
+
+      // Render Tab 3: Direct Engine & Architecture Picker (Inline, V, Flat/Boxer, W)
+      renderEngineDirectPicker(myBuild);
+      const netGain = currentInstalledInSlot ? (part.boost - currentInstalledInSlot.boost) : part.boost;
+      const projectedSpeed = myBuild.totalSpeed + Math.max(0, netGain);
+
+      document.getElementById('preview-current-speed').textContent = `${myBuild.totalSpeed} km/h`;
+      document.getElementById('preview-projected-speed').textContent = `${projectedSpeed} km/h`;
+
+      const slotStatusBadge = document.getElementById('preview-slot-status');
+      const netDeltaEl = document.getElementById('preview-net-delta');
+      const swapNoteEl = document.getElementById('preview-swap-note');
+
+      if (!currentInstalledInSlot) {
+        slotStatusBadge.className = 'px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase';
+        slotStatusBadge.textContent = 'New Empty Slot';
+        netDeltaEl.className = 'font-display font-bold text-xs text-emerald-400';
+        netDeltaEl.textContent = `(+${part.boost} km/h)`;
+        swapNoteEl.innerHTML = `Empty <strong class="text-white">${part.category}</strong> slot — full <span class="text-emerald-400 font-semibold">+${part.boost} km/h</span> speed gain!`;
+      } else if (netGain > 0) {
+        slotStatusBadge.className = 'px-2 py-0.5 rounded bg-racing-cyan/15 text-racing-cyan text-[10px] font-bold uppercase';
+        slotStatusBadge.textContent = 'Version Upgrade';
+        netDeltaEl.className = 'font-display font-bold text-xs text-racing-cyan';
+        netDeltaEl.textContent = `(+${netGain} net)`;
+        swapNoteEl.innerHTML = `Replaces your <strong class="text-slate-200">${currentInstalledInSlot.name}</strong> (+${currentInstalledInSlot.boost}) for a net <span class="text-racing-cyan font-semibold">+${netGain} km/h</span> boost.`;
+      } else {
+        slotStatusBadge.className = 'px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px] font-bold uppercase';
+        slotStatusBadge.textContent = 'Lower/Same Version';
+        netDeltaEl.className = 'font-display font-bold text-xs text-slate-400';
+        netDeltaEl.textContent = `(+0 net)`;
+        swapNoteEl.innerHTML = `You already own <strong class="text-amber-300">${currentInstalledInSlot.name}</strong> (+${currentInstalledInSlot.boost} km/h) in this slot.`;
+      }
+
+      // Center Stage Tab 2: 10-Point Comparative Part Analysis
+      document.getElementById('analysis-score-text').textContent = `${part.rating.toFixed(1)} / 10 (${part.rarity})`;
+      document.getElementById('analysis-score-bar').style.width = `${Math.min(100, part.rating * 10)}%`;
+      document.getElementById('analysis-verdict-text').textContent = part.analysis;
+
+      const sameCategoryVersions = PARTS_CATALOG.filter(p => p.category === part.category).sort((a, b) => a.boost - b.boost);
+      document.getElementById('analysis-versions-compare').innerHTML = sameCategoryVersions.map(v => `
+        <span class="px-2 py-0.5 rounded border ${v.id === part.id ? 'bg-racing-orange/20 border-racing-orange text-white font-bold' : 'bg-carbon-950 border-white/10 text-slate-400'}">
+          ${v.version}: +${v.boost}km/h (★${v.rating})
+        </span>
+      `).join('');
+
+      // Bid Info
+      const minNext = room.currentBid === 0 ? 20 : room.currentBid + 10;
+      document.getElementById('current-bid-amount').textContent = `$${room.currentBid}`;
+      document.getElementById('min-next-bid-label').textContent = `$${minNext}`;
+      document.getElementById('highest-bidder-name').textContent = room.highestBidderName
+        ? `Held by ${room.highestBidderName}${room.highestBidderId === state.userId ? ' (YOU)' : ''}`
+        : 'No bids yet — open bidding!';
+
+      // Timer Display
+      const effectiveMs = room.isPaused ? (room.pausedRemainingMs || 0) : (room.roundEndsAt - Date.now());
+      const secsLeft = Math.max(0, Math.ceil(effectiveMs / 1000));
+      const timerBox = document.getElementById('auction-timer-box');
+      timerBox.textContent = `${secsLeft}s`;
+      if (secsLeft <= 4 && !room.isPaused) {
+        timerBox.classList.add('text-red-400', 'border-red-500', 'animate-pulse');
+      } else {
+        timerBox.classList.remove('text-red-400', 'border-red-500', 'animate-pulse');
+      }
+
+      // Sold Overlay
+      const soldOverlay = document.getElementById('sold-overlay');
+      if (room.partSoldBanner) {
+        if (soldOverlay.classList.contains('hidden')) {
+          sfx.sold();
+        }
+        soldOverlay.classList.remove('hidden');
+        document.getElementById('sold-winner-title').textContent = room.partSoldBanner.sold
+          ? `SOLD TO ${room.partSoldBanner.winnerName}!`
+          : 'UNSOLD!';
+        document.getElementById('sold-winner-sub').textContent = room.partSoldBanner.sold
+          ? `${room.partSoldBanner.partName} (+${room.partSoldBanner.boost} km/h) attached for $${room.partSoldBanner.amount}`
+          : `Nobody bid on ${room.partSoldBanner.partName}`;
+      } else {
+        soldOverlay.classList.add('hidden');
+      }
+
+      // LEFT PANEL: All Racers, Live Bike Speeds & Every Part They Bought Under Their Name
+      const allPlayers = Object.values(room.players || {}).sort((a, b) => b.speed - a.speed);
+      document.getElementById('rivals-list').innerHTML = allPlayers.map(p => {
+        const pParts = p.parts || [];
+        return `
+          <div class="p-3 rounded-2xl bg-carbon-800/85 border ${p.id === room.highestBidderId ? 'border-racing-amber/70 shadow-md shadow-amber-500/10' : p.id === state.userId ? 'border-racing-cyan/40' : 'border-white/10'}">
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0">
+    function renderEngineDirectPicker(myBuild) {
+      const listEl = document.getElementById('engine-direct-list');
+      const filterEl = document.getElementById('engine-arch-filter');
+      if (!listEl || !filterEl) return;
+
+      const selectedArch = filterEl.value;
+      const engines = PARTS_CATALOG.filter(p => p.category === 'Engine' && (selectedArch === 'ALL' || p.arch === selectedArch));
+      const installedEng = myBuild?.slotMap?.Engine;
+
+      listEl.innerHTML = engines.map(eng => {
+        const isInstalled = installedEng && installedEng.id === eng.id;
+        return `
+          <div class="p-2 rounded-xl bg-carbon-950/90 border ${isInstalled ? 'border-emerald-500/50' : 'border-white/10'} flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.2 rounded bg-racing-orange/20 text-racing-orange font-bold text-[9px] uppercase">${eng.arch}</span>
+                <span class="text-[10px] font-display font-bold text-amber-300">★${eng.rating.toFixed(1)}</span>
+              </div>
+              <div class="text-xs font-bold text-white truncate mt-0.5">${eng.version}</div>
+              <div class="text-[10px] text-emerald-400 font-semibold">+${eng.boost} km/h</div>
+            </div>
+            <button
+              data-engine-id="${eng.id}"
+              class="select-engine-lot-btn shrink-0 px-2.5 py-1.5 rounded-lg bg-racing-cyan/15 hover:bg-racing-cyan/30 border border-racing-cyan/40 text-racing-cyan font-display font-bold text-[10px] uppercase tracking-wider transition active:scale-95"
+            >
+              ${isInstalled ? 'Owned' : 'Bid / Queue'}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      listEl.querySelectorAll('.select-engine-lot-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectEngineLotDirectly(btn.dataset.engineId);
+        });
+      });
+    }
+
+    function renderShowdown(room, isHost) {
+      const ranked = Object.values(room.players || {}).sort((a, b) => {
+        if (b.speed !== a.speed) return b.speed - a.speed;
+        return b.cash - a.cash; // Tie-breaker: remaining cash
+      });
+
+      const maxSpeed = Math.max(...ranked.map(p => p.speed), 150);
+      const lanesContainer = document.getElementById('race-lanes-container');
+
+      lanesContainer.innerHTML = ranked.map((p, idx) => {
+        const targetPct = Math.min(86, Math.max(30, Math.round((p.speed / maxSpeed) * 84)));
+        return `
+          <div class="bg-carbon-900/90 border border-white/10 rounded-xl p-3">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <div class="font-bold text-white flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-white/10 font-display">#${idx + 1}</span>
+                <span>${p.name}</span>
+              </div>
+              <div class="font-display font-bold text-racing-cyan text-sm">${p.speed} km/h</div>
+            </div>
+            <div class="relative h-12 bg-carbon-950 rounded-lg border border-white/5 overflow-hidden flex items-center">
+              <div
+                id="racer-sprite-${p.id}"
+                style="left: 2%; transition: left 2.4s cubic-bezier(0.22, 1, 0.36, 1);"
+                data-target="${targetPct}%"
+                class="absolute top-1/2 -translate-y-1/2 flex items-center"
+              >
+                ${renderBikeSVG(p.parts || [], p.color, true)}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Final Garages Side-by-Side
+      document.getElementById('final-garages-grid').innerHTML = ranked.map((p, idx) => `
+        <div class="bg-carbon-800/80 border ${idx === 0 ? 'border-amber-400/60 shadow-lg shadow-amber-500/10' : 'border-white/10'} rounded-2xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-display font-bold ${idx === 0 ? 'bg-amber-400 text-slate-950' : 'bg-white/10 text-slate-300'}">
+                ${idx === 0 ? '🏆 1st Place' : `#${idx + 1} Place`}
+              </span>
+              <span class="text-xs text-emerald-400 font-bold">Cash Left: $${p.cash}</span>
+            </div>
+            <h4 class="font-display text-lg font-bold text-white">${p.name}</h4>
+            <div class="font-display text-2xl font-bold text-racing-cyan mb-2">${p.speed} km/h</div>
+            <div class="h-28 bg-carbon-950 rounded-xl p-2 flex items-center justify-center mb-3">
+              ${renderBikeSVG(p.parts || [], p.color)}
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            ${(p.parts && p.parts.length > 0)
+              ? p.parts.map(pt => `<span class="px-2 py-0.5 rounded bg-carbon-950 text-[11px] text-slate-300">+${pt.boost} ${pt.name}</span>`).join('')
+              : '<span class="text-xs text-slate-500 italic">Stock Bike (No upgrades)</span>'}
+          </div>
+        </div>
+      `).join('');
+
+      // Animate Drag Race once on entry
+      if (!state.raceAnimated) {
+        state.raceAnimated = true;
+        sfx.rev();
+        setTimeout(() => {
+          ranked.forEach(p => {
+            const sprite = document.getElementById(`racer-sprite-${p.id}`);
+            if (sprite) sprite.style.left = sprite.dataset.target;
+          });
+        }, 120);
+
+        setTimeout(() => {
+          const champ = ranked[0];
+          const banner = document.getElementById('champion-banner');
+          banner.classList.remove('hidden');
+          document.getElementById('champion-name').textContent = champ.name;
+          document.getElementById('champion-stats').textContent = `Top Speed: ${champ.speed} km/h • Remaining Budget: $${champ.cash}`;
+          sfx.sold();
+        }, 2550);
+      } else {
+        ranked.forEach(p => {
+          const sprite = document.getElementById(`racer-sprite-${p.id}`);
+          if (sprite) sprite.style.left = sprite.dataset.target;
+        });
+        document.getElementById('champion-banner').classList.remove('hidden');
+      }
+
+      // Play Again button visibility
+      if (isHost) {
+        document.getElementById('play-again-btn').classList.remove('hidden');
+        document.getElementById('guest-play-again-msg').classList.add('hidden');
+      } else {
+        document.getElementById('play-again-btn').classList.add('hidden');
+        document.getElementById('guest-play-again-msg').classList.remove('hidden');
+      }
+    }
+
+    // ==================== 10. EVENT LISTENERS & CLIPBOARD ====================
+    function copyRoomCode() {
+      if (!state.roomCode) return;
+      const tempInput = document.createElement('input');
+      tempInput.value = state.roomCode;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      // Center Stage Tab Switchers (Speed Preview vs 10-Pt Analysis vs Engine Picker)
+      const tabPreviewBtn = document.getElementById('tab-btn-preview');
+      const tabAnalysisBtn = document.getElementById('tab-btn-analysis');
+      const tabEnginesBtn = document.getElementById('tab-btn-engines');
+      const tabPreviewContent = document.getElementById('tab-content-preview');
+      const tabAnalysisContent = document.getElementById('tab-content-analysis');
+      const tabEnginesContent = document.getElementById('tab-content-engines');
+
+      function setCenterTab(tab) {
+        state.activeCenterTab = tab;
+        const inactiveClass = 'flex-1 py-1.5 px-1.5 rounded-lg text-slate-400 hover:text-white font-display font-bold text-[11px] uppercase tracking-wider transition';
+        tabPreviewBtn.className = tab === 'preview'
+          ? 'flex-1 py-1.5 px-1.5 rounded-lg bg-racing-cyan/20 border border-racing-cyan/40 text-racing-cyan font-display font-bold text-[11px] uppercase tracking-wider transition'
+          : inactiveClass;
+        tabAnalysisBtn.className = tab === 'analysis'
+          ? 'flex-1 py-1.5 px-1.5 rounded-lg bg-racing-amber/20 border border-racing-amber/40 text-racing-amber font-display font-bold text-[11px] uppercase tracking-wider transition'
+          : inactiveClass;
+        tabEnginesBtn.className = tab === 'engines'
+          ? 'flex-1 py-1.5 px-1.5 rounded-lg bg-racing-orange/20 border border-racing-orange/40 text-racing-orange font-display font-bold text-[11px] uppercase tracking-wider transition'
+          : inactiveClass;
+
+        tabPreviewContent.classList.toggle('hidden', tab !== 'preview');
+        tabAnalysisContent.classList.toggle('hidden', tab !== 'analysis');
+        tabEnginesContent.classList.toggle('hidden', tab !== 'engines');
+      }
+
+      tabPreviewBtn.addEventListener('click', () => setCenterTab('preview'));
+      tabAnalysisBtn.addEventListener('click', () => setCenterTab('analysis'));
+      tabEnginesBtn.addEventListener('click', () => setCenterTab('engines'));
+
+      document.getElementById('engine-arch-filter').addEventListener('change', () => {
+        if (state.roomData && state.roomData.players) {
+          const me = state.roomData.players[state.userId];
+          renderEngineDirectPicker(computePlayerBuild(me?.parts || []));
+        }
+      });
+
+      document.getElementById('create-room-btn').addEventListener('click', createRoom);
+      document.getElementById('join-room-btn').addEventListener('click', joinRoom);
+      document.getElementById('add-bot-btn').addEventListener('click', addBotRacer);
+      document.getElementById('start-auction-btn').addEventListener('click', startAuctionRound);
+      document.getElementById('pause-bid-btn').addEventListener('click', pauseAuctionBid);
+      document.getElementById('resume-bid-btn').addEventListener('click', resumeAuctionBid);
+      document.getElementById('end-race-now-btn').addEventListener('click', endAuctionAndStartRace);
+      document.getElementById('play-again-btn').addEventListener('click', startAuctionRound);
+      document.getElementById('leave-room-btn').addEventListener('click', leaveRoom);
+      document.getElementById('copy-code-btn').addEventListener('click', copyRoomCode);
+      document.getElementById('lobby-copy-btn').addEventListener('click', copyRoomCode);
+
+      // Sound Toggle
+      document.getElementById('sound-toggle-btn').addEventListener('click', () => {
+        sfx.enabled = !sfx.enabled;
+        document.getElementById('sound-on-icon').classList.toggle('hidden', !sfx.enabled);
+        document.getElementById('sound-off-icon').classList.toggle('hidden', sfx.enabled);
+        showToast(sfx.enabled ? "Sound effects enabled" : "Sound effects muted", "info");
+      });
+
+      // Quick Bid Buttons
+      document.querySelectorAll('.quick-bid-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const room = state.roomData;
+          if (!room) return;
+          const inc = parseInt(btn.dataset.inc, 10);
+          const base = room.currentBid === 0 ? 10 : room.currentBid;
+          placeBid(base + inc);
+        });
+      });
+
+      // Custom Bid Button
+      const customBidBtn = document.getElementById('place-custom-bid-btn');
+      if (customBidBtn) {
+        customBidBtn.addEventListener('click', () => {
+          const val = parseInt(document.getElementById('custom-bid-input').value, 10);
+          if (isNaN(val) || val <= 0) {
+            showToast("Enter a valid dollar amount.", "warn");
+            return;
+          }
+          placeBid(val);
+          document.getElementById('custom-bid-input').value = '';
+        });
+      }
+    }
+
+    // Initialize Authentication & Window Load Setup
+    window.addEventListener('DOMContentLoaded', async () => {
+      bindUIEvents();
+      if (auth && !useLocalFallback) {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+          onAuthStateChanged(auth, (user) => {
+            if (user) {
+              currentUser = user;
+              state.userId = user.uid;
+            }
+          });
+        } catch (err) {
+          console.warn("Auth fallback to local session ID:", err);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
