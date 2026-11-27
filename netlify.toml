@@ -2,6 +2,11 @@
   publish = "."
 
 [[redirects]]
-  from = "/"
-  to = "/motobid_multiplayer_bike_upgrade_auction_game.html"
-  status = 200
+  from = "/motobid_multiplayer_bike_upgrade_auction_game.html"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/motobid_multiplayer_bike_upgrade_auction_game"
+  to = "/"
+  status = 301
